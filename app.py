@@ -13,6 +13,20 @@ from inspector.rules import detect_issues
 # -----------------------------
 st.set_page_config(page_title="Data Drop Inspector", layout="wide")
 
+# Constrain width + improve vertical rhythm (biggest "pro" win)
+st.markdown(
+    """
+    <style>
+        .block-container {
+            max-width: 1100px;
+            padding-top: 2rem;
+            padding-bottom: 2rem;
+        }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
 st.title("📦 Data Drop Inspector")
 st.caption("Upload a dataset and run an inspection to generate a fast data health report.")
 
@@ -64,7 +78,6 @@ if run:
             df = st.session_state.df
 
             profile_df = build_column_profile(df)
-            # rules expects list[dict] for profile_rows
             profile_rows = profile_df.to_dict(orient="records")
             issues = detect_issues(df, profile_rows)
 
@@ -95,7 +108,9 @@ if st.session_state.df is None:
 df = st.session_state.df
 filename = st.session_state.filename or "uploaded file"
 
-st.subheader(f"Dataset: `{filename}`")
+# Section header + calmer hierarchy
+st.markdown("### Dataset overview")
+st.caption(f"`{filename}`")
 
 m1, m2, m3, m4 = st.columns(4)
 m1.metric("Rows", df.shape[0])
@@ -105,18 +120,29 @@ m4.metric("Exact duplicates", int(df.duplicated().sum()))
 
 tabs = st.tabs(["Overview", "Column Health", "Issues", "Exports"])
 
+
+# -----------------------------
+# Overview tab
+# -----------------------------
 with tabs[0]:
     st.markdown("### Preview")
     st.dataframe(df.head(25), use_container_width=True)
 
+    st.markdown("---")
     st.markdown("### Quick notes")
     st.write("Use **Run inspection** to compute profiling and detect common quality issues.")
 
+
+# -----------------------------
+# Column Health tab
+# -----------------------------
 with tabs[1]:
     if st.session_state.profile_df is None:
         st.info("Run inspection to generate the Column Health table.")
     else:
         st.markdown("### Column Health")
+        st.caption("Sorted by missingness (null %) to quickly spot risky fields.")
+
         prof = st.session_state.profile_df.copy().sort_values(by="null_%", ascending=False)
 
         q = st.text_input("Filter columns (contains)", value="")
@@ -125,6 +151,10 @@ with tabs[1]:
 
         st.dataframe(prof, use_container_width=True)
 
+
+# -----------------------------
+# Issues tab
+# -----------------------------
 with tabs[2]:
     if st.session_state.issues is None:
         st.info("Run inspection to see issues & recommendations.")
@@ -143,32 +173,52 @@ with tabs[2]:
         c2.metric("Warnings", len(groups["warning"]))
         c3.metric("Info", len(groups["info"]))
 
+        st.markdown("---")
         st.markdown("### Critical")
         if not groups["critical"]:
             st.success("No critical issues found.")
         else:
             for it in groups["critical"]:
-                st.error(f"**{it['title']}**\n\n{it['details']}\n\n✅ *Suggestion:* {it['suggestion']}")
+                st.error(
+                    f"**{it['title']}**  \n"
+                    f"{it['details']}  \n"
+                    f"*Suggestion:* {it['suggestion']}"
+                )
 
+        st.markdown("---")
         st.markdown("### Warnings")
         if not groups["warning"]:
             st.success("No warnings found.")
         else:
             for it in groups["warning"]:
-                st.warning(f"**{it['title']}**\n\n{it['details']}\n\n✅ *Suggestion:* {it['suggestion']}")
+                st.warning(
+                    f"**{it['title']}**  \n"
+                    f"{it['details']}  \n"
+                    f"*Suggestion:* {it['suggestion']}"
+                )
 
+        st.markdown("---")
         st.markdown("### Info")
         if not groups["info"]:
             st.info("No informational notes.")
         else:
             for it in groups["info"]:
-                st.info(f"**{it['title']}**\n\n{it['details']}\n\n✅ *Suggestion:* {it['suggestion']}")
+                st.info(
+                    f"**{it['title']}**  \n"
+                    f"{it['details']}  \n"
+                    f"*Suggestion:* {it['suggestion']}"
+                )
 
+
+# -----------------------------
+# Exports tab
+# -----------------------------
 with tabs[3]:
     if st.session_state.report is None or st.session_state.cleaned_df is None:
         st.info("Run inspection to enable downloads.")
     else:
         st.markdown("### Download artifacts")
+        st.caption("Export a JSON report and a safely cleaned CSV for downstream work.")
 
         report_json = json.dumps(st.session_state.report, indent=2, default=str)
         st.download_button(
